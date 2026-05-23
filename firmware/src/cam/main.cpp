@@ -3,10 +3,9 @@
 #include "esp_camera.h"
 #include "esp_http_server.h"
 
-const char* WIFI_SSID = "KZTK-43332";
-const char* WIFI_PASS = "U9R64Hzc";
+const char* WIFI_SSID = "Sanzhik";
+const char* WIFI_PASS = "12345678san";
 
-// Пины AI Thinker ESP32-CAM
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -30,25 +29,18 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   camera_fb_t *fb = NULL;
   esp_err_t res = ESP_OK;
   char buf[64];
-
-  httpd_resp_set_type(req,
-    "multipart/x-mixed-replace;boundary=frame");
-
+  httpd_resp_set_type(req, "multipart/x-mixed-replace;boundary=frame");
   while (true) {
     fb = esp_camera_fb_get();
     if (!fb) { res = ESP_FAIL; break; }
-
     size_t hlen = snprintf(buf, sizeof(buf),
       "--frame\r\nContent-Type: image/jpeg\r\n"
       "Content-Length: %u\r\n\r\n", fb->len);
-
     res = httpd_resp_send_chunk(req, buf, hlen);
     if (res == ESP_OK)
-      res = httpd_resp_send_chunk(req,
-              (const char*)fb->buf, fb->len);
+      res = httpd_resp_send_chunk(req, (const char*)fb->buf, fb->len);
     if (res == ESP_OK)
       res = httpd_resp_send_chunk(req, "\r\n", 2);
-
     esp_camera_fb_return(fb);
     if (res != ESP_OK) break;
   }
@@ -88,41 +80,59 @@ bool initCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
   config.fb_location  = CAMERA_FB_IN_PSRAM;
-
-  if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 12;
-    config.fb_count     = 2;
-  } else {
-    config.frame_size   = FRAMESIZE_QVGA;
-    config.jpeg_quality = 20;
-    config.fb_count     = 1;
-  }
+ if (psramFound()) {
+  config.frame_size   = FRAMESIZE_VGA;   // 640x480
+  config.jpeg_quality = 15;              // средне
+  config.fb_count     = 2;
+} else {
+  config.frame_size   = FRAMESIZE_QVGA;  // 320x240
+  config.jpeg_quality = 20;
+  config.fb_count     = 1;
+}
   return esp_camera_init(&config) == ESP_OK;
 }
 
 void setup() {
   Serial.begin(115200);
+  Serial.setDebugOutput(true);
+  delay(2000);
+  Serial.println("\n\n=== ESP32-CAM СТАРТ ===");
 
+  Serial.println("Инициализация камеры...");
   if (!initCamera()) {
-    Serial.println("[CAM] Ошибка камеры — перезагрузка");
+    Serial.println("ОШИБКА: камера не найдена!");
+    delay(3000);
+    ESP.restart();
+  }
+  Serial.println("Камера OK");
+
+  Serial.printf("Подключаюсь к WiFi: %s\n", WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\nОШИБКА: WiFi не подключился!");
     delay(3000);
     ESP.restart();
   }
 
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(400); Serial.print(".");
-  }
+  Serial.printf("\nWiFi OK! IP: %s\n", WiFi.localIP().toString().c_str());
 
   startStreamServer();
-
-  // Выводим IP — вставишь его в бэкенд и Flutter
-  Serial.printf("\n[CAM] Готово! Стрим: http://%s:81/stream\n",
+  Serial.printf("Стрим: http://%s:81/stream\n",
     WiFi.localIP().toString().c_str());
 }
 
 void loop() {
   delay(5000);
-  if (WiFi.status() != WL_CONNECTED) ESP.restart();
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi потерян — перезагрузка");
+    ESP.restart();
+  }
 }

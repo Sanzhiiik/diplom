@@ -83,7 +83,7 @@ class SensorService {
 
     return SensorSnapshot(
       front: SensorData(zone: 'front', zoneName: 'Передняя'),
-      rear:  SensorData(zone: 'rear',  zoneName: 'Задняя'),
+      rear:  buildZone('rear',  'Задняя'),  // ← теперь читает данные
       left:  buildZone('left',  'Левая'),
       right: buildZone('right', 'Правая'),
       timestamp: DateTime.now(),

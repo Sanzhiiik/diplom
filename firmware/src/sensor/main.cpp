@@ -17,9 +17,10 @@ struct Sensor {
 
 Sensor sensors[] = {
   {"left",  17, 16},
-  {"right", 21, 19}
+  {"right", 21, 19},
+  {"rear",  22, 5}     // TRIG D22, ECHO D5
 };
-const int COUNT = 2;
+const int COUNT = 3;
 
 const float DANGER_CM  = 100.0;
 const float WARNING_CM = 250.0;
@@ -77,7 +78,7 @@ void loop() {
     lastSendMs = millis();
 
     String level = "safe";
-    if (minDist < DANGER_CM)       level = "danger";
+    if (minDist < DANGER_CM) level = "danger";
     else if (minDist < WARNING_CM) level = "warning";
 
     JsonDocument doc;
@@ -88,7 +89,7 @@ void loop() {
     JsonObject readings = doc["readings"].to<JsonObject>();
     readings["left"]  = dist[0];
     readings["right"] = dist[1];
-    readings["rear"]  = -1;
+    readings["rear"]  = dist[2];   // теперь реальные данные
     readings["front"] = -1;
 
     String json;
